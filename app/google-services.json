@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1039833309384",
+    "project_id": "youandpeople-a8d9b",
+    "storage_bucket": "youandpeople-a8d9b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1039833309384:android:e47ef6eea4ac451e9045fd",
+        "android_client_info": {
+          "package_name": "week11.st926963.youandpeople"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2Je4NsbOJrZj0qeh45zqHVsSRQry0dIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
