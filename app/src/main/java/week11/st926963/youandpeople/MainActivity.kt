@@ -30,7 +30,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -49,18 +48,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import week11.st926963.youandpeople.ui.theme.YouAndPeopleTheme
+import week11.st926963.youandpeople.model.ChatItem
 import week11.st926963.youandpeople.util.UiState
 import week11.st926963.youandpeople.viewmodel.MainViewModel
+import java.time.LocalDateTime
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,7 +79,7 @@ class MainActivity : ComponentActivity() {
             }
             when (uiState) {
                 UiState.Login -> LoginScreen(vm)
-                UiState.Chat -> ChatScreen(vm)
+                UiState.Chat -> ChatScreen(vm, chats)
                 UiState.Chatrooms -> ChatroomsScreen(vm)
                 UiState.LookingForChats -> LookingForChatsScreen(vm)
                 UiState.Reset -> ResetScreen(vm)
@@ -530,7 +524,9 @@ fun LoginScreen(vm: MainViewModel){
 }
 
 @Composable
-fun ChatScreen(vm: MainViewModel){
+fun ChatScreen(vm: MainViewModel, chats : List<ChatItem>){
+    var message by rememberSaveable { mutableStateOf("") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -545,14 +541,21 @@ fun ChatScreen(vm: MainViewModel){
         ){
             MessageList(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(), chats, vm
             )
         }
 
         MessageInputBar(
-            message = "",
-            onMessageChange = {},
-            onSend = {}
+            message = message,
+            onMessageChange = {message = it},
+            onSend =
+                {
+                    if(message.isNotEmpty())
+                    {
+                        vm.addChat(LocalDateTime.now().toString(), message)
+                        message = ""
+                    }
+                }
         )
     }
 }
@@ -583,7 +586,7 @@ fun ChatHeader(){
 data class Message(val text: String, val isUser: Boolean)
 
 @Composable
-fun MessageList(modifier: Modifier = Modifier) {
+fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainViewModel) {
     val messages = listOf(
         Message("Hey did you register for your new courses", isUser = false),
         Message("Im trying to register for my new courses but im having issues", isUser = true),
@@ -594,16 +597,16 @@ fun MessageList(modifier: Modifier = Modifier) {
         modifier = modifier,
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
-        items(messages) { msg ->
-            if (msg.isUser) UserMessage(msg.text)
-            else OtherMessage(msg.text)
+        items(chats) { msg ->
+            if (msg.user == vm.getEmail()) UserMessage(msg.message)
+            else OtherMessage(msg.message)
             Spacer(Modifier.height(12.dp))
         }
     }
 }
 
 @Composable
-fun OtherMessage(text: String) {
+fun OtherMessage(text: String?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -620,13 +623,15 @@ fun OtherMessage(text: String) {
                 .background(Color.White, shape = RoundedCornerShape(12.dp))
                 .padding(12.dp)
         ) {
-            Text(text, color = Color.Black)
+            if (text != null) {
+                Text(text, color = Color.Black)
+            }
         }
     }
 }
 
 @Composable
-fun UserMessage(text: String) {
+fun UserMessage(text: String?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
@@ -636,7 +641,9 @@ fun UserMessage(text: String) {
                 .background(Color(0xFF6957FF), shape = RoundedCornerShape(12.dp))
                 .padding(12.dp)
         ) {
-            Text(text, color = Color.White)
+            if (text != null) {
+                Text(text, color = Color.White)
+            }
         }
     }
 }

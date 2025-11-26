@@ -71,7 +71,7 @@ class MainViewModel : ViewModel() {
 
     fun addChat(date : String, message: String ) {
         viewModelScope.launch {
-            repo.addChat(ChatItem(date, message))
+            repo.addChat(ChatItem(date, message = message))
         }
     }
 
