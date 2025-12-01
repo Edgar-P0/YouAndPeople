@@ -42,7 +42,17 @@ class ChatRepository {
 
         val reg = db.collection("chats")
             .addSnapshotListener { snapshot, _ ->
-                trySend(snapshot?.toObjects(ChatItem::class.java) ?: emptyList())
+                val chats = snapshot?.toObjects(ChatItem::class.java) ?: emptyList()
+
+                val sortedChats = chats.sortedBy { chat ->
+                    try {
+                        java.time.LocalDateTime.parse(chat.date)
+                    } catch (e: Exception) {
+                        java.time.LocalDateTime.MIN
+                    }
+                }
+
+                trySend(sortedChats)
             }
         awaitClose { reg.remove() }
     }
