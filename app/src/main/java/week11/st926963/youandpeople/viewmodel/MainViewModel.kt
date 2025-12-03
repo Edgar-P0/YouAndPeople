@@ -87,11 +87,23 @@ class MainViewModel : ViewModel() {
             repo.addChat(roomId, java.time.LocalDateTime.now().toString(), message)
         }
     }
+    fun addsGifToChat(date: String, gifURL: String) {
+        val roomId = selectedChatroomId.value ?: return
+        viewModelScope.launch {
+            repo.addChat(
+                    roomId = roomId,
+                    date = date,
+                    message = null,
+                    gifUrl = gifURL
+            )
+        }
+    }
 
     fun getSelectedRoom(): ChatRoom? {
         val id = selectedChatroomId.value ?: return null
         return chatRooms.find { it.id == id }
     }
+
 
 
     fun deleteChat(item : ChatItem){
@@ -128,6 +140,7 @@ class MainViewModel : ViewModel() {
     fun getEmail(): String{
         return auth.currentUser?.email.toString()
     }
+
 
     fun loginScreen(){
         _uiState.value = UiState.Login

@@ -19,14 +19,15 @@ class ChatRepository {
 
     private val chatsCollection = Firebase.firestore.collection("chats")
 
-    suspend fun addChat(roomId: String, date: String, message: String) {
+    suspend fun addChat(roomId: String, date: String, message: String?, gifUrl: String? = null) {
         val user = auth.currentUser ?: return
 
         val item = ChatItem(
             roomId = roomId,
             message = message,
             user = user.email,
-            date = date
+            date = date,
+            gifUrl = gifUrl
         )
 
         db.collection("chats").add(item).await()

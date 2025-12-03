@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +28,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +38,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -42,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,7 +61,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import week11.st926963.youandpeople.model.ChatItem
 import week11.st926963.youandpeople.model.ChatRoom
 import week11.st926963.youandpeople.util.UiState
@@ -600,7 +608,8 @@ fun ChatScreen(vm: MainViewModel) {
                     vm.addChat(message)
                     message = ""
                 }
-            }
+            },
+            vm = vm
         )
     }
 }
@@ -651,20 +660,47 @@ data class Message(val text: String, val isUser: Boolean)
 
 @Composable
 fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainViewModel) {
-    val messages = listOf(
-        Message("Hey did you register for your new courses", isUser = false),
-        Message("Im trying to register for my new courses but im having issues", isUser = true),
-        Message("Bummer", isUser = false)
-    )
-
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         items(chats) { msg ->
-            if (msg.user == vm.getEmail()) UserMessage(msg.message)
-            else OtherMessage(msg.message)
+            val isUser = msg.user == vm.getEmail()
+            if (!msg.gifUrl.isNullOrEmpty()) {
+                if (isUser) {
+                    UserGifMessage(msg.gifUrl)
+                }
+            } else if (!msg.message.isNullOrEmpty()) {
+                if (isUser) {
+                    UserMessage(msg.message)
+                } else {
+                    OtherMessage(msg.message)
+                }
+            }
             Spacer(Modifier.height(12.dp))
+        }
+    }
+}
+@Composable
+fun UserGifMessage(gifUrl: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        Box(
+            modifier = Modifier
+                .background(Color(0xFF6957FF), shape = RoundedCornerShape(12.dp))
+                .padding(8.dp)
+        ) {
+            Image(
+                painter = rememberAsyncImagePainter(gifUrl),
+                contentDescription = "GIF",
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Fit
+            )
         }
     }
 }
@@ -716,8 +752,10 @@ fun UserMessage(text: String?) {
 fun MessageInputBar(
     message: String,
     onMessageChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    vm: MainViewModel
 ) {
+    var showGifPicker by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -780,5 +818,76 @@ fun MessageInputBar(
             )
         }
     }
+    if (showGifPicker) {
+        GifPicker(
+            onDismiss = { showGifPicker = false },
+            onGifSelected = { gifUrl ->
+                vm.addsGifToChat(LocalDateTime.now().toString(), gifUrl)
+            }
+        )
+    }
 }
+
+
+
+@Composable
+fun GifPicker(
+    onDismiss: () -> Unit,
+    onGifSelected: (String) -> Unit
+) {
+    val gifs = listOf(
+        "https://media.giphy.com/media/3o7aD2saalBwwftBIY/giphy.gif",
+        "https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif",
+        "https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif",
+        "https://media.giphy.com/media/26uf5Hghn9SQzCKL6/giphy.gif",
+        "https://media.giphy.com/media/g9582DNuQppxC/giphy.gif",
+        "https://media.giphy.com/media/ICOgUNjpvO0PC/giphy.gif",
+        "https://media.giphy.com/media/l46Cy1rHbQ92uuLXa/giphy.gif",
+        "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif"
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White
+        ) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF6C4DFF))
+                        .padding(16.dp)
+                ) {
+                    Text("Choose a GIF", color = Color.White, fontSize = 18.sp)
+                }
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(gifs) { gifUrl ->
+                        Image(
+                            painter = rememberAsyncImagePainter(gifUrl),
+                            contentDescription = "GIF",
+                            modifier = Modifier
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    onGifSelected(gifUrl)
+                                    onDismiss()
+                                },
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 
