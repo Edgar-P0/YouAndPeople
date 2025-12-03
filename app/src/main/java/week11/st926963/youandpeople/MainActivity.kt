@@ -16,12 +16,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -34,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,8 +57,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import week11.st926963.youandpeople.model.ChatItem
+import week11.st926963.youandpeople.model.ChatRoom
 import week11.st926963.youandpeople.util.UiState
 import week11.st926963.youandpeople.viewmodel.MainViewModel
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDateTime
 
 class MainActivity : ComponentActivity() {
@@ -79,7 +87,7 @@ class MainActivity : ComponentActivity() {
             }
             when (uiState) {
                 UiState.Login -> LoginScreen(vm)
-                UiState.Chat -> ChatScreen(vm, chats)
+                UiState.Chat -> ChatScreen(vm)
                 UiState.Chatrooms -> ChatroomsScreen(vm)
                 UiState.LookingForChats -> LookingForChatsScreen(vm)
                 UiState.Reset -> ResetScreen(vm)
@@ -91,6 +99,28 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ChatroomsScreen(vm: MainViewModel) {
+
+    LaunchedEffect(Unit){
+        vm.loadChatRooms()
+    }
+
+    fun formatTimestamp(ts: String): String {
+        return try {
+            val instant = Instant.parse(ts)
+            val duration = Duration.between(instant, Instant.now())
+
+            when {
+                duration.toMinutes() < 1 -> "Now"
+                duration.toMinutes() < 60 -> "${duration.toMinutes()} min"
+                duration.toHours() < 24 -> "${duration.toHours()} hr"
+                else -> "${duration.toDays()} d"
+            }
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -134,13 +164,17 @@ fun ChatroomsScreen(vm: MainViewModel) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.weight(1f)
         ) {
-            items(4){ index ->
-                when (index){
-                    0 -> ChatCard(vm,"S", "SDNE", "Edgar: Are you guys ready for the quiz?", "4 min")
-                    1 -> ChatCard(vm,"R", "Robotics Club", "Andriy: Guys I have some news!", "25 min")
-                    2 -> ChatCard(vm,"E", "Engineering Club", "Josh: Are guys coming tonight?", "1 Day")
-                    3 -> ChatCard(vm, "B", "Book Club", "Joe: Did you guys read Harry Potter?", "4 Days")
-                }
+            items(vm.chatRooms) { room ->
+                ChatCard(
+                    vm = vm,
+                    letter = room.name.take(1).uppercase(),
+                    title = room.name,
+                    message = room.lastMessage,
+                    time = formatTimestamp(room.lastMessageTimestamp),
+                    onClick = {
+                        vm.openChatroom(room.id)
+                    }
+                )
             }
         }
         Box(
@@ -194,7 +228,7 @@ fun PinnedCircle(letter: String, label: String) {
 }
 
 @Composable
-fun ChatCard(vm: MainViewModel, letter: String, title: String, message: String, time: String) {
+fun ChatCard(vm: MainViewModel, letter: String, title: String, message: String, time: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -205,7 +239,7 @@ fun ChatCard(vm: MainViewModel, letter: String, title: String, message: String, 
                 color = Color.White.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(25.dp)
             )
-            .clickable{ vm.chatScreen() }
+            .clickable{ onClick() }
             .padding(16.dp)
     ) {
 
@@ -524,64 +558,94 @@ fun LoginScreen(vm: MainViewModel){
 }
 
 @Composable
-fun ChatScreen(vm: MainViewModel, chats : List<ChatItem>){
+fun ChatScreen(vm: MainViewModel) {
+
+    val messages by vm.messages.collectAsState()
+    val roomId = vm.selectedChatroomId.collectAsState().value
+    val room = vm.getSelectedRoom()
+
     var message by rememberSaveable { mutableStateOf("") }
 
+
+    if (roomId == null) {
+        Text("No chatroom selected")
+        return
+    }
+
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-    ){
-        ChatHeader()
+        modifier = Modifier.fillMaxSize()
+    ) {
+
+        ChatHeader(room)
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
                 .weight(1f)
-        ){
+        ) {
             MessageList(
-                modifier = Modifier
-                    .fillMaxWidth(), chats, vm
+                modifier = Modifier.fillMaxWidth(),
+                chats = messages,
+                vm = vm
             )
         }
 
+        // Input bar
         MessageInputBar(
             message = message,
-            onMessageChange = {message = it},
-            onSend =
-                {
-                    if(message.isNotEmpty())
-                    {
-                        vm.addChat(LocalDateTime.now().toString(), message)
-                        message = ""
-                    }
+            onMessageChange = { message = it },
+            onSend = {
+                if (message.isNotEmpty()) {
+                    vm.addChat(message)
+                    message = ""
                 }
+            }
         )
     }
 }
 
+
+
 @Composable
-fun ChatHeader(){
+fun ChatHeader(room: ChatRoom?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF6C4DFF), shape = RoundedCornerShape(0.dp, 0.dp, 30.dp, 30.dp))
+            .background(
+                Color(0xFF6C4DFF),
+                shape = RoundedCornerShape(0.dp, 0.dp, 30.dp, 30.dp)
+            )
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 16.dp, vertical = 10.dp)
-    ){
-        Row(verticalAlignment = Alignment.CenterVertically){
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+
             Box(
                 modifier = Modifier
                     .size(42.dp)
-                    .background(Color(0xFF6C4DFF), shape = CircleShape),
+                    .background(Color.White.copy(alpha = 0.2f), shape = CircleShape),
                 contentAlignment = Alignment.Center
-            ){
-                Text("S", color = Color.White, fontWeight = FontWeight.Bold)
+            ) {
+                Text(
+                    text = room?.name?.firstOrNull()?.uppercase() ?: "?",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
             }
+
             Spacer(Modifier.width(12.dp))
-            Text("SDNE", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+            Text(
+                text = room?.name ?: "Chat",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
+
 
 data class Message(val text: String, val isUser: Boolean)
 

@@ -4,6 +4,7 @@ import com.google.firebase.firestore.DocumentId
 
 
 data class ChatItem(
+    val roomId: String? = "",
     val date: String? = "",
     val message: String? = "",
     val user: String? = "",
