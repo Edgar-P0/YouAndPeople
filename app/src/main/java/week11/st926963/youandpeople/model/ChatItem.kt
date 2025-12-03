@@ -7,6 +7,7 @@ data class ChatItem(
     val date: String? = "",
     val message: String? = "",
     val user: String? = "",
+    val gifUrl: String? = null,
     @DocumentId
     val id: String = ""
 )

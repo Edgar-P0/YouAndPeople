@@ -69,9 +69,29 @@ class MainViewModel : ViewModel() {
     }
 
 
-    fun addChat(date : String, message: String ) {
+    fun addChat(date: String, message: String) {
         viewModelScope.launch {
-            repo.addChat(ChatItem(date, message = message))
+            repo.addChat(
+                ChatItem(
+                    date = date,
+                    message = message,
+                    user = getEmail(),
+                    gifUrl = null
+                )
+            )
+        }
+    }
+
+    fun addsGifToChat(date: String, gifURL: String) {
+        viewModelScope.launch {
+            repo.addChat(
+                ChatItem(
+                    date = date,
+                    message = null,
+                    user = getEmail(),
+                    gifUrl = gifURL
+                )
+            )
         }
     }
 
