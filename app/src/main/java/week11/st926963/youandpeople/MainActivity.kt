@@ -1,10 +1,17 @@
 package week11.st926963.youandpeople
 
+import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,14 +25,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,7 +60,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -63,15 +67,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.ui.window.Dialog
 import coil.compose.rememberAsyncImagePainter
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
 import week11.st926963.youandpeople.model.ChatItem
 import week11.st926963.youandpeople.model.ChatRoom
 import week11.st926963.youandpeople.util.UiState
@@ -79,13 +79,26 @@ import week11.st926963.youandpeople.viewmodel.MainViewModel
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
+import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+    private lateinit var tts: TextToSpeech
+    private lateinit var voiceLauncher: ActivityResultLauncher<Intent>
+    private val vm: MainViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Register launcher
+        voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
+                spokenText?.let { vm.setVoiceInput(it) }
+            }
+        }
+        tts = TextToSpeech(this, this)
         enableEdgeToEdge()
         setContent {
-            val vm: MainViewModel = viewModel()
+
             val uiState by vm.uiState.collectAsState()
             val chats by vm.chats.collectAsState()
             BackHandler(enabled = uiState != UiState.Login) {
@@ -103,12 +116,37 @@ class MainActivity : ComponentActivity() {
             }
             when (uiState) {
                 UiState.Login -> LoginScreen(vm)
-                UiState.Chat -> ChatScreen(vm)
+                UiState.Chat -> ChatScreen(vm, onSpeak = { text ->
+                    tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ttsId")
+                }, onVoiceInput = { startVoiceRecognition() })
                 UiState.Chatrooms -> ChatroomsScreen(vm)
                 UiState.LookingForChats -> LookingForChatsScreen(vm)
                 UiState.Reset -> ResetScreen(vm)
             }
         }
+    }
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts.language = java.util.Locale.US
+        }
+    }
+
+    override fun onDestroy() {
+        if (::tts.isInitialized) {
+            tts.stop()
+            tts.shutdown()
+        }
+        super.onDestroy()
+    }
+
+    private fun startVoiceRecognition() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
+        }
+        voiceLauncher.launch(intent)
+
     }
 }
 
@@ -574,13 +612,22 @@ fun LoginScreen(vm: MainViewModel){
 }
 
 @Composable
-fun ChatScreen(vm: MainViewModel) {
+fun ChatScreen(vm: MainViewModel, onSpeak: (String) -> Unit, onVoiceInput: () -> Unit) {
 
     val messages by vm.messages.collectAsState()
     val roomId = vm.selectedChatroomId.collectAsState().value
     val room = vm.getSelectedRoom()
 
     var message by rememberSaveable { mutableStateOf("") }
+
+    // React to voice input from the ViewModel
+    val voiceInput by vm.voiceInput.collectAsState()
+    LaunchedEffect(voiceInput) {
+        voiceInput?.let {
+            message += it           // append the recognized text
+            vm.clearVoiceInput()    // clear in the VM
+        }
+    }
 
 
     if (roomId == null) {
@@ -603,7 +650,8 @@ fun ChatScreen(vm: MainViewModel) {
             MessageList(
                 modifier = Modifier.fillMaxWidth(),
                 chats = messages,
-                vm = vm
+                vm = vm,
+                onSpeak = onSpeak
             )
         }
 
@@ -617,7 +665,8 @@ fun ChatScreen(vm: MainViewModel) {
                     message = ""
                 }
             },
-            vm = vm
+            vm = vm,
+            onVoiceInput = onVoiceInput
         )
     }
 }
@@ -667,7 +716,7 @@ fun ChatHeader(room: ChatRoom?) {
 data class Message(val text: String, val isUser: Boolean)
 
 @Composable
-fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainViewModel) {
+fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainViewModel, onSpeak: (String) -> Unit) {
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(vertical = 12.dp)
@@ -680,9 +729,9 @@ fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainVi
                 }
             } else if (!msg.message.isNullOrEmpty()) {
                 if (isUser) {
-                    UserMessage(msg.message)
+                    UserMessage(msg.message, onSpeak = onSpeak)
                 } else {
-                    OtherMessage(msg.message)
+                    OtherMessage(msg.message, onSpeak = onSpeak)
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -714,7 +763,7 @@ fun UserGifMessage(gifUrl: String) {
 }
 
 @Composable
-fun OtherMessage(text: String?) {
+fun OtherMessage(text: String?, onSpeak: (String) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -735,15 +784,44 @@ fun OtherMessage(text: String?) {
                 Text(text, color = Color.Black)
             }
         }
+        IconButton(
+            onClick = {
+                text?.let { onSpeak(it) }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                contentDescription = "Speak",
+                tint = Color(0xFF6957FF)
+            )
+        }
     }
 }
 
 @Composable
-fun UserMessage(text: String?) {
+fun UserMessage(
+    text: String?,
+    onSpeak: (String) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
     ) {
+
+
+        IconButton(
+            onClick = {
+                text?.let { onSpeak(it) }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                contentDescription = "Speak",
+                tint = Color(0xFF6957FF)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .background(Color(0xFF6957FF), shape = RoundedCornerShape(12.dp))
@@ -761,7 +839,8 @@ fun MessageInputBar(
     message: String,
     onMessageChange: (String) -> Unit,
     onSend: () -> Unit,
-    vm: MainViewModel
+    vm: MainViewModel,
+    onVoiceInput: () -> Unit
 ) {
     var showGifPicker by remember { mutableStateOf(false) }
     Row(
@@ -795,7 +874,10 @@ fun MessageInputBar(
                     modifier = Modifier.weight(1f),
                 )
 
-                IconButton(onClick = { /* TODO handle microphone */ }) {
+                IconButton(onClick =
+                    {
+                        onVoiceInput()
+                    }) {
                     Icon(
                         painter = painterResource(id = R.drawable.microphone),
                         contentDescription = null,

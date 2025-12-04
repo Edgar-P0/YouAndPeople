@@ -1,5 +1,6 @@
 package week11.st926963.youandpeople.viewmodel
 
+import android.speech.tts.TextToSpeech
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -36,7 +37,15 @@ class MainViewModel : ViewModel() {
 
     private val _selectedChatroomId = MutableStateFlow<String?>(null)
     val selectedChatroomId: StateFlow<String?> = _selectedChatroomId
+    private val _voiceInput = MutableStateFlow<String?>(null)
+    val voiceInput: StateFlow<String?> = _voiceInput
 
+    fun setVoiceInput(text: String) {
+        _voiceInput.value = text
+    }
+    fun clearVoiceInput() {
+        _voiceInput.value = null
+    }
     init {
        auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
@@ -49,6 +58,9 @@ class MainViewModel : ViewModel() {
             }
         }
     }
+
+
+
 
     fun login(email: String, password: String) {
         auth.signInWithEmailAndPassword(email, password)
