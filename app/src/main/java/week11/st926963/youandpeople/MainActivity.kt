@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -72,11 +71,14 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import coil.compose.rememberAsyncImagePainter
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.request.ImageRequest
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import week11.st926963.youandpeople.model.ChatItem
 import week11.st926963.youandpeople.model.ChatRoom
 import week11.st926963.youandpeople.util.UiState
@@ -89,9 +91,27 @@ import java.util.Locale
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private lateinit var tts: TextToSpeech
     private lateinit var voiceLauncher: ActivityResultLauncher<Intent>
+    private lateinit var googleSignInClient: GoogleSignInClient
+    private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
     private val vm: MainViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        //im handling the google sign and using our web api key that we need. you can find this key
+        //in our google-service.json file
+        val googleSignIn = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken("1039833309384-p1bhm9c93buueh41o9qjkckcaut65oo8.apps.googleusercontent.com")
+            .requestEmail()
+            .build()
+
+        googleSignInClient = GoogleSignIn.getClient(this, googleSignIn)
+
+        googleSignInLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            val account = task.getResult(ApiException::class.java)
+            vm.signingInWithGoogle(account)
+        }
 
         // Register launcher
         voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -120,7 +140,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 )
             }
             when (uiState) {
-                UiState.Login -> LoginScreen(vm)
+                UiState.Login -> LoginScreen(vm = vm, onGoogleSignIn = { startGoogleSignIn() } )
                 UiState.Chat -> ChatScreen(vm, onSpeak = { text ->
                     tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ttsId")
                 }, onVoiceInput = { startVoiceRecognition() })
@@ -129,6 +149,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 UiState.Reset -> ResetScreen(vm)
             }
         }
+    }
+
+    fun startGoogleSignIn() {
+        val signInIntent = googleSignInClient.signInIntent
+        googleSignInLauncher.launch(signInIntent)
     }
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
@@ -469,7 +494,7 @@ fun LookingForChatsScreen(vm: MainViewModel){
 }
 
 @Composable
-fun LoginScreen(vm: MainViewModel){
+fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
@@ -595,7 +620,10 @@ fun LoginScreen(vm: MainViewModel){
             Image(
                 painter = painterResource(id = R.drawable.google),
                 contentDescription = "Google Login",
-                modifier = Modifier.size(width = 30.dp, height = 30.dp)
+                modifier = Modifier
+                    .size(width = 30.dp, height = 30.dp)
+                    .clickable { onGoogleSignIn() }
+
             )
             Image(
                 painter = painterResource(id = R.drawable.twitter),

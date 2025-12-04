@@ -6,7 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -19,6 +21,20 @@ import week11.st926963.youandpeople.util.UiState
 class MainViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val repo = ChatRepository()
+
+    fun signingInWithGoogle(account: GoogleSignInAccount) {
+        viewModelScope.launch {
+            try {
+                val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+                auth.signInWithCredential(credential)
+                    .addOnSuccessListener {
+                        _uiState.value = UiState.Chatrooms
+                    }
+            } catch (e: Exception) {
+                _message.value = e.localizedMessage ?: "error"
+            }
+        }
+    }
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Login)
     val uiState: StateFlow<UiState> = _uiState
@@ -110,6 +126,8 @@ class MainViewModel : ViewModel() {
             )
         }
     }
+
+
 
     fun getSelectedRoom(): ChatRoom? {
         val id = selectedChatroomId.value ?: return null

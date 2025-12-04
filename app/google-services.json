@@ -12,7 +12,20 @@
           "package_name": "week11.st926963.youandpeople"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1039833309384-p1bhm9c93buueh41o9qjkckcaut65oo8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "week11.st926963.youandpeople",
+            "certificate_hash": "99eb48446d41aead0961abdfde326f73901fb639"
+          }
+        },
+        {
+          "client_id": "1039833309384-mor1pko5397j5o512q5v8hcis56vadqi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD2Je4NsbOJrZj0qeh45zqHVsSRQry0dIY"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1039833309384-mor1pko5397j5o512q5v8hcis56vadqi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
