@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,10 +28,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -54,7 +57,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -68,6 +70,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import coil.compose.rememberAsyncImagePainter
@@ -86,6 +90,7 @@ import week11.st926963.youandpeople.viewmodel.MainViewModel
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
@@ -114,12 +119,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         // Register launcher
-        voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
-                spokenText?.let { vm.setVoiceInput(it) }
+        voiceLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == RESULT_OK) {
+                    val spokenText =
+                        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
+                    spokenText?.let { vm.setVoiceInput(it) }
+                }
             }
-        }
         tts = TextToSpeech(this, this)
         enableEdgeToEdge()
         setContent {
@@ -140,10 +147,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 )
             }
             when (uiState) {
-                UiState.Login -> LoginScreen(vm = vm, onGoogleSignIn = { startGoogleSignIn() } )
+                UiState.Login -> LoginScreen(vm = vm, onGoogleSignIn = { startGoogleSignIn() })
                 UiState.Chat -> ChatScreen(vm, onSpeak = { text ->
                     tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ttsId")
                 }, onVoiceInput = { startVoiceRecognition() })
+
                 UiState.Chatrooms -> ChatroomsScreen(vm)
                 UiState.LookingForChats -> LookingForChatsScreen(vm)
                 UiState.Reset -> ResetScreen(vm)
@@ -155,6 +163,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
     }
+
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts.language = java.util.Locale.US
@@ -171,7 +180,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun startVoiceRecognition() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
         }
@@ -184,7 +196,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 @Composable
 fun ChatroomsScreen(vm: MainViewModel) {
 
-    LaunchedEffect(Unit){
+    LaunchedEffect(Unit) {
         vm.loadChatRooms()
     }
 
@@ -240,7 +252,7 @@ fun ChatroomsScreen(vm: MainViewModel) {
         Spacer(modifier = Modifier.height(10.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(20.dp)
-        ){
+        ) {
             PinnedCircle("S", "SDNE")
             PinnedCircle("R", "Robotics Club")
             PinnedCircle("E", "Engineering Club")
@@ -270,11 +282,11 @@ fun ChatroomsScreen(vm: MainViewModel) {
                 .size(60.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF4C23FF))
-                .clickable{
+                .clickable {
                     vm.lookingForChatScreen()
                 },
             contentAlignment = Alignment.Center
-        ){
+        ) {
             Text(
                 text = "+",
                 color = Color.White,
@@ -314,7 +326,14 @@ fun PinnedCircle(letter: String, label: String) {
 }
 
 @Composable
-fun ChatCard(vm: MainViewModel, letter: String, title: String, message: String, time: String, onClick: () -> Unit) {
+fun ChatCard(
+    vm: MainViewModel,
+    letter: String,
+    title: String,
+    message: String,
+    time: String,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -325,7 +344,7 @@ fun ChatCard(vm: MainViewModel, letter: String, title: String, message: String, 
                 color = Color.White.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(25.dp)
             )
-            .clickable{ onClick() }
+            .clickable { onClick() }
             .padding(16.dp)
     ) {
 
@@ -371,25 +390,25 @@ fun ChatCard(vm: MainViewModel, letter: String, title: String, message: String, 
 }
 
 @Composable
-fun ResetScreen(vm: MainViewModel){
+fun ResetScreen(vm: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
-    ){
+    ) {
         Spacer(modifier = Modifier.height(10.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Start
-        ){
+        ) {
             Image(
                 painter = painterResource(id = R.drawable.back),
                 contentDescription = "Back button",
                 colorFilter = ColorFilter.tint(Color.White),
                 modifier = Modifier
                     .size(width = 50.dp, height = 50.dp)
-                    .clickable{
+                    .clickable {
                         vm.loginScreen()
                     }
             )
@@ -430,7 +449,7 @@ fun ResetScreen(vm: MainViewModel){
                 contentColor = Color.White
             ),
             border = BorderStroke(2.dp, Color.White.copy(alpha = 0.4f))
-        ){
+        ) {
             Text(
                 text = "Reset Password",
                 fontSize = 18.sp,
@@ -441,13 +460,13 @@ fun ResetScreen(vm: MainViewModel){
 }
 
 @Composable
-fun LookingForChatsScreen(vm: MainViewModel){
+fun LookingForChatsScreen(vm: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
-    ){
+    ) {
         Spacer(modifier = Modifier.height(20.dp))
         Text(
             text = "Look For Chats",
@@ -485,7 +504,7 @@ fun LookingForChatsScreen(vm: MainViewModel){
                 contentColor = Color.White
             ),
             border = BorderStroke(2.dp, Color.White.copy(alpha = 0.4f))
-        ){
+        ) {
             Text(
                 text = "Search",
                 fontSize = 18.sp,
@@ -496,7 +515,7 @@ fun LookingForChatsScreen(vm: MainViewModel){
 }
 
 @Composable
-fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
+fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf("") }
@@ -505,7 +524,7 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
-    ){
+    ) {
         Spacer(modifier = Modifier.height(80.dp))
         Text(
             text = "You & People",
@@ -524,7 +543,7 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
         )
         TextField(
             value = email,
-            onValueChange = {email = it},
+            onValueChange = { email = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp)
@@ -540,7 +559,7 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
         )
         TextField(
             value = password,
-            onValueChange = {password = it},
+            onValueChange = { password = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp)
@@ -553,7 +572,7 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
             fontSize = 12.sp,
             modifier = Modifier
                 .align(Alignment.End)
-                .clickable{
+                .clickable {
                     vm.resetScreen()
                 }
         )
@@ -561,9 +580,9 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
         Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = {
-                if(email.isNotEmpty() && password.isNotEmpty()){
+                if (email.isNotEmpty() && password.isNotEmpty()) {
                     vm.login(email, password)
-                }else{
+                } else {
                     error = "Please fill in all fields"
                 }
             },
@@ -576,7 +595,7 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
                 contentColor = Color.White
             ),
             border = BorderStroke(2.dp, Color.White.copy(alpha = 0.4f))
-        ){
+        ) {
             Text(
                 text = "Login",
                 fontSize = 18.sp,
@@ -587,10 +606,9 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
         Button(
             onClick =
                 {
-                    if(email.isNotEmpty() && password.isNotEmpty())
-                    {
+                    if (email.isNotEmpty() && password.isNotEmpty()) {
                         vm.signUp(email, password)
-                    }else{
+                    } else {
                         error = "Please fill in all fields"
                     }
                 },
@@ -603,7 +621,7 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
                 contentColor = Color.White
             ),
             border = BorderStroke(2.dp, Color.White.copy(alpha = 0.4f))
-        ){
+        ) {
             Text(
                 text = "Register",
                 fontSize = 18.sp,
@@ -618,7 +636,7 @@ fun LoginScreen(vm: MainViewModel, onGoogleSignIn: () -> Unit){
         )
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ){
+        ) {
             Image(
                 painter = painterResource(id = R.drawable.google),
                 contentDescription = "Google Login",
@@ -674,7 +692,7 @@ fun ChatScreen(vm: MainViewModel, onSpeak: (String) -> Unit, onVoiceInput: () ->
         modifier = Modifier.fillMaxSize()
     ) {
 
-        ChatHeader(room)
+        ChatHeader(vm,room)
 
         Column(
             modifier = Modifier
@@ -707,9 +725,8 @@ fun ChatScreen(vm: MainViewModel, onSpeak: (String) -> Unit, onVoiceInput: () ->
 }
 
 
-
 @Composable
-fun ChatHeader(room: ChatRoom?) {
+fun ChatHeader(vm: MainViewModel,room: ChatRoom?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -743,6 +760,19 @@ fun ChatHeader(room: ChatRoom?) {
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Image(
+                painter = painterResource(id = R.drawable.back),
+                contentDescription = "Back button",
+                colorFilter = ColorFilter.tint(Color.White),
+                modifier = Modifier
+                    .size(width = 30.dp, height = 30.dp)
+                    .clickable {
+                        vm.chatroomScreen()
+                    }
+            )
         }
     }
 }
@@ -751,7 +781,12 @@ fun ChatHeader(room: ChatRoom?) {
 data class Message(val text: String, val isUser: Boolean)
 
 @Composable
-fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainViewModel, onSpeak: (String) -> Unit) {
+fun MessageList(
+    modifier: Modifier = Modifier,
+    chats: List<ChatItem>,
+    vm: MainViewModel,
+    onSpeak: (String) -> Unit
+) {
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(vertical = 12.dp)
@@ -760,85 +795,23 @@ fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainVi
             val isUser = msg.user == vm.getEmail()
             if (!msg.gifUrl.isNullOrEmpty()) {
                 if (isUser) {
-                    UserGifMessage(msg.gifUrl)
+                    UserGifMessage(msg.gifUrl, senderName = msg.user, timestamp = msg.date)
+                } else {
+                    OtherGifMessage(msg.gifUrl, senderName = msg.user, timestamp = msg.date)
                 }
             } else if (!msg.message.isNullOrEmpty()) {
                 if (isUser) {
-                    UserMessage(msg.message, onSpeak = onSpeak)
+                    UserMessage(
+                        msg.message,
+                        onSpeak = onSpeak,
+                        senderName = msg.user,
+                        timestamp = msg.date
+                    )
                 } else {
-                    OtherMessage(msg.message, onSpeak = onSpeak)
+                    OtherMessage(msg.message, onSpeak = onSpeak, senderName = msg.user, timestamp = msg.date)
                 }
             }
             Spacer(Modifier.height(12.dp))
-        }
-    }
-}
-@Composable
-fun UserGifMessage(gifUrl: String) {
-    val context = LocalContext.current
-    val imageLoader = ImageLoader.Builder(context)
-        .components {
-            add(GifDecoder.Factory()) // enable GIF animation
-        }
-        .build()
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
-    ) {
-        Box(
-            modifier = Modifier
-                .background(Color(0xFF6957FF), shape = RoundedCornerShape(12.dp))
-                .padding(8.dp)
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(gifUrl)
-                    .build(),
-                imageLoader = imageLoader,
-                contentDescription = "GIF",
-                modifier = Modifier
-                    .width(200.dp)
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Fit
-            )
-        }
-    }
-}
-
-@Composable
-fun OtherMessage(text: String?, onSpeak: (String) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.pfp),
-            contentDescription = null,
-            modifier = Modifier.size(32.dp)
-        )
-        Spacer(Modifier.width(8.dp))
-
-        Box(
-            modifier = Modifier
-                .background(Color.White, shape = RoundedCornerShape(12.dp))
-                .padding(12.dp)
-        ) {
-            if (text != null) {
-                Text(text, color = Color.Black)
-            }
-        }
-        IconButton(
-            onClick = {
-                text?.let { onSpeak(it) }
-            }
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
-                contentDescription = "Speak",
-                tint = Color(0xFF6957FF)
-            )
         }
     }
 }
@@ -846,7 +819,9 @@ fun OtherMessage(text: String?, onSpeak: (String) -> Unit) {
 @Composable
 fun UserMessage(
     text: String?,
-    onSpeak: (String) -> Unit
+    onSpeak: (String) -> Unit,
+    senderName: String,
+    timestamp: String?
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -872,8 +847,248 @@ fun UserMessage(
                 .background(Color(0xFF6957FF), shape = RoundedCornerShape(12.dp))
                 .padding(12.dp)
         ) {
-            if (text != null) {
-                Text(text, color = Color.White)
+            Column() {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = senderName,
+                        color = Color.White,
+                        fontSize = 8.sp,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    if (timestamp != null) {
+                        Text(
+                            text = formatTime(timestamp),
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 8.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                if (text != null) {
+                    Text(text, color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserGifMessage(gifUrl: String, senderName: String, timestamp: String?) {
+    val context = LocalContext.current
+    val imageLoader = ImageLoader.Builder(context)
+        .components { add(GifDecoder.Factory()) }
+        .build()
+    var gifWidth by remember { mutableStateOf(200.dp) }
+    var gifHeight by remember { mutableStateOf(200.dp) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        Box(
+            modifier = Modifier
+                .background(Color(0xFF6957FF), RoundedCornerShape(12.dp))
+                .padding(8.dp)
+        ) {
+            Column {
+                Row() {
+                    if(timestamp != null) {
+                        Text(
+                            text = senderName,
+                            color = Color.White,
+                            fontSize = 8.sp,
+                            maxLines = 1,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    if (timestamp != null) {
+                        Text(
+                            text = formatTime(timestamp),
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 8.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(gifUrl)
+                        .listener(
+                            onSuccess = { _, result ->
+                                val wPx = result.drawable.intrinsicWidth
+                                val hPx = result.drawable.intrinsicHeight
+                                gifWidth = (wPx / context.resources.displayMetrics.density).dp
+                                gifHeight = (hPx / context.resources.displayMetrics.density).dp
+                            }
+                        )
+                        .build(),
+                    imageLoader = imageLoader,
+                    contentDescription = "GIF",
+                    contentScale = ContentScale.Fit,
+
+                    modifier = Modifier
+                        .widthIn(
+                            min = 50.dp,
+                            max = (LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+                        )
+                        .heightIn(min = 80.dp, max = 350.dp)
+                        .size(
+                            width = gifWidth.run { coerceAtMost(LocalConfiguration.current.screenWidthDp.dp * 0.75f) },
+                            height = gifHeight.coerceAtMost(350.dp)
+                        )
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+fun OtherMessage(text: String?, onSpeak: (String) -> Unit, senderName: String?, timestamp: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.pfp),
+            contentDescription = null,
+            modifier = Modifier.size(32.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+
+        Box(
+            modifier = Modifier
+                .background(Color.White, shape = RoundedCornerShape(12.dp))
+                .padding(12.dp)
+        ) {
+            Column() {
+                Row() {
+                    if(senderName != null) {
+                        Text(
+                            text = senderName,
+                            color = Color.Black,
+                            fontSize = 8.sp,
+                            maxLines = 1,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    if (timestamp != null) {
+                        Text(
+                            text = formatTime(timestamp),
+                            color = Color.Black.copy(alpha = 0.4f),
+                            fontSize = 8.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                if (text != null) {
+                    Text(text, color = Color.Black)
+                }
+            }
+        }
+        IconButton(
+            onClick = {
+                text?.let { onSpeak(it) }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                contentDescription = "Speak",
+                tint = Color(0xFF6957FF)
+            )
+        }
+    }
+}
+
+@Composable
+fun OtherGifMessage(gifUrl: String, senderName: String?, timestamp: String?) {
+    val context = LocalContext.current
+    val imageLoader = ImageLoader.Builder(context)
+        .components { add(GifDecoder.Factory()) }
+        .build()
+    var gifWidth by remember { mutableStateOf(200.dp) }
+    var gifHeight by remember { mutableStateOf(200.dp) }
+
+    val maxWidth = LocalConfiguration.current.screenWidthDp.dp * 0.75f
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.pfp),
+            contentDescription = null,
+            modifier = Modifier.size(32.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+
+        Box(
+            modifier = Modifier
+                .background(
+                    Color.White,
+                    RoundedCornerShape(12.dp)
+                )
+                .padding(8.dp)
+        ) {
+            Column {
+                Row() {
+                    if (senderName != null) {
+                        Text(
+                            text = senderName,
+                            color = Color.Black,
+                            fontSize = 8.sp,
+                            maxLines = 1,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    if (timestamp != null) {
+                        Text(
+                            text = formatTime(timestamp),
+                            color = Color.Black.copy(alpha = 0.4f),
+                            fontSize = 8.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(gifUrl)
+                        .listener(
+                            onSuccess = { _, result ->
+                                val wPx = result.drawable.intrinsicWidth
+                                val hPx = result.drawable.intrinsicHeight
+
+                                val density = context.resources.displayMetrics.density
+                                gifWidth = (wPx / density).dp
+                                gifHeight = (hPx / density).dp
+                            }
+                        )
+                        .build(),
+                    imageLoader = imageLoader,
+                    contentDescription = "GIF",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .widthIn(min = 50.dp, max = maxWidth)
+                        .heightIn(min = 80.dp, max = 350.dp)
+                        .size(
+                            width = gifWidth.coerceAtMost(maxWidth),
+                            height = gifHeight.coerceAtMost(350.dp)
+                        )
+                        .clip(RoundedCornerShape(8.dp))
+                )
             }
         }
     }
@@ -919,10 +1134,11 @@ fun MessageInputBar(
                     modifier = Modifier.weight(1f),
                 )
 
-                IconButton(onClick =
-                    {
-                        onVoiceInput()
-                    }) {
+                IconButton(
+                    onClick =
+                        {
+                            onVoiceInput()
+                        }) {
                     Icon(
                         painter = painterResource(id = R.drawable.microphone),
                         contentDescription = null,
@@ -963,7 +1179,14 @@ fun MessageInputBar(
     }
 }
 
-
+fun formatTime(timestamp: String): String {
+    return try {
+        val dt = LocalDateTime.parse(timestamp)
+        dt.format(DateTimeFormatter.ofPattern("h:mm a"))
+    } catch (e: Exception) {
+        ""
+    }
+}
 
 @Composable
 fun GifPicker(
