@@ -69,9 +69,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import coil.compose.rememberAsyncImagePainter
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.request.ImageRequest
 import week11.st926963.youandpeople.model.ChatItem
 import week11.st926963.youandpeople.model.ChatRoom
 import week11.st926963.youandpeople.util.UiState
@@ -740,6 +745,13 @@ fun MessageList(modifier: Modifier = Modifier, chats: List<ChatItem>, vm: MainVi
 }
 @Composable
 fun UserGifMessage(gifUrl: String) {
+    val context = LocalContext.current
+    val imageLoader = ImageLoader.Builder(context)
+        .components {
+            add(GifDecoder.Factory()) // enable GIF animation
+        }
+        .build()
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
@@ -749,8 +761,11 @@ fun UserGifMessage(gifUrl: String) {
                 .background(Color(0xFF6957FF), shape = RoundedCornerShape(12.dp))
                 .padding(8.dp)
         ) {
-            Image(
-                painter = rememberAsyncImagePainter(gifUrl),
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(gifUrl)
+                    .build(),
+                imageLoader = imageLoader,
                 contentDescription = "GIF",
                 modifier = Modifier
                     .width(200.dp)
@@ -933,7 +948,9 @@ fun GifPicker(
         "https://media.giphy.com/media/g9582DNuQppxC/giphy.gif",
         "https://media.giphy.com/media/ICOgUNjpvO0PC/giphy.gif",
         "https://media.giphy.com/media/l46Cy1rHbQ92uuLXa/giphy.gif",
-        "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif"
+        "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif",
+        "https://media1.tenor.com/m/nntljd7AbREAAAAd/cant-sleep-awake.gif",
+        "https://media1.tenor.com/m/GLMgQt-oMSEAAAAd/teach-me-how-to-dougie.gif"
     )
 
     Dialog(onDismissRequest = onDismiss) {
