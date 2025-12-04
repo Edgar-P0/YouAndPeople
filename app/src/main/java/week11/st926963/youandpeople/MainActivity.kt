@@ -226,7 +226,9 @@ fun ChatroomsScreen(vm: MainViewModel) {
             Image(
                 painter = painterResource(id = R.drawable.pfp),
                 contentDescription = "Profile Picture",
-                modifier = Modifier.size(width = 40.dp, height = 40.dp)
+                modifier = Modifier
+                    .size(width = 40.dp, height = 40.dp)
+                    .clickable { vm.logout() }
             )
         }
         Spacer(modifier = Modifier.height(20.dp))
